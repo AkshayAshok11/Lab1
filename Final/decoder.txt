@@ -1,58 +1,40 @@
-module decoder5to32 (
-    output wire [31:0] enable,
-    input  wire [4:0] sel,
-    input  wire write_en
+module dec1_2 (out0, out1, in, en);
+  output wire out0, out1;
+  input  wire in, en;
+  wire n_in;
+
+  not #50 g1 (n_in, in);
+  and #50 g2 (out0, en, n_in);
+  and #50 g3 (out1, en, in);
+endmodule
+
+
+
+module dec5_32 (
+  output logic [31:0] out,
+  input logic [4:0] sel,
+  input logic en
 );
+  logic [1:0] lvl3;
+  logic [3:0] lvl2;
+  logic [7:0] lvl1;
+  logic [15:0] lvl0;
 
-  wire [4:0] comp;   // complements of each select bit
-  wire [3:0] g2;     // decode of sel[1:0]
-  wire [3:0] g4;     // decode of sel[3:2]
-  wire [15:0] g16;   // decode of sel[3:0]
-  wire [31:0] g32;   // decode of sel[4:0], before RegWrite gating
+  dec1_2 dtop (.out0(lvl3[0]), .out1(lvl3[1]), .in(sel[4]), .en(en));
 
-  genvar b;
+  genvar i;
   generate
-    for (b = 0; b < 5; b = b + 1) begin : invert_bits
-      not #(0.05) g_inv (comp[b], sel[b]);
+    for (i = 0; i < 2; i = i + 1) begin : L3
+      dec1_2 d (.out0(lvl2[2*i]), .out1(lvl2[2*i+1]), .in(sel[3]), .en(lvl3[i]));
+    end
+    for (i = 0; i < 4; i = i + 1) begin : L2
+      dec1_2 d (.out0(lvl1[2*i]), .out1(lvl1[2*i+1]), .in(sel[2]), .en(lvl2[i]));
+    end
+    for (i = 0; i < 8; i = i + 1) begin : L1
+      dec1_2 d (.out0(lvl0[2*i]), .out1(lvl0[2*i+1]), .in(sel[1]), .en(lvl1[i]));
+    end
+    for (i = 0; i < 16; i = i + 1) begin : L0
+      dec1_2 d (.out0(out[2*i]), .out1(out[2*i+1]), .in(sel[0]), .en(lvl0[i]));
     end
   endgenerate
-
-  // Stage A: decode sel[1:0] -> g2[0]=00, g2[1]=01, g2[2]=10, g2[3]=11
-  and #(0.05) a20 (g2[0], comp[1], comp[0]);
-  and #(0.05) a21 (g2[1], comp[1], sel[0]);
-  and #(0.05) a22 (g2[2], sel[1],  comp[0]);
-  and #(0.05) a23 (g2[3], sel[1],  sel[0]);
-
-  // Stage B: decode sel[3:2] -> same pattern, one bit higher
-  and #(0.05) a40 (g4[0], comp[3], comp[2]);
-  and #(0.05) a41 (g4[1], comp[3], sel[2]);
-  and #(0.05) a42 (g4[2], sel[3],  comp[2]);
-  and #(0.05) a43 (g4[3], sel[3],  sel[2]);
-
-  // Stage C: combine into 16-way decode of sel[3:0]
-  genvar j;
-  generate
-    for (j = 0; j < 16; j = j + 1) begin : stage_c
-      and #(0.05) g_c (g16[j], g4[j/4], g2[j%4]);
-    end
-  endgenerate
-
-  // Stage D: fold in sel[4] to get the full 32-way decode
-  genvar k;
-  generate
-    for (k = 0; k < 16; k = k + 1) begin : stage_d_lo
-      and #(0.05) g_dlo (g32[k], comp[4], g16[k]);
-    end
-    for (k = 16; k < 32; k = k + 1) begin : stage_d_hi
-      and #(0.05) g_dhi (g32[k], sel[4], g16[k-16]);
-    end
-  endgenerate
-
-  // Stage E: gate every one-hot line with write_en
-  generate
-    for (k = 0; k < 32; k = k + 1) begin : stage_e
-      and #(0.05) g_e (enable[k], g32[k], write_en);
-    end
-  endgenerate
-
 endmodule
