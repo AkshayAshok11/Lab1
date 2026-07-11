@@ -1,3 +1,5 @@
+`timescale 1ns/10ps
+
 module add (in1, in2, sum, cin, cout);
   output wire sum, cout;
   input wire cin, in1, in2;

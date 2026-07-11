@@ -1,3 +1,5 @@
+`timescale 1ns/10ps
+
 module mux2_1 (out, i0, i1, sel);
   output wire out;
   input wire i0, i1, sel;
